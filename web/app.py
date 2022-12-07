@@ -14,12 +14,24 @@ import urllib.request as req
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from geotext import GeoText
+from tkinterhtml import HtmlFrame
+import tkinter as tk
+from googletrans import Translator
+import wolframalpha
+from wolframalpha import Client
+# from polyglot.detect import Detector
+import six
+# from google.cloud import translate_v2 as translate
 
+translator = Translator()
+# translate_client = translate.Client()
+# root = tk.Tk()
 # cb = cleverbot.Cleverbot('CCC1afw_sCnym21L6wpLuWBLDbA')
 msgHistory = []
 cb = cleverbotfreeapi
 
 current_context = ""
+current_language = "en"
 
 appnlp = spacy.load("en_core_web_sm")
 sp = spacy.load("en_core_web_sm")
@@ -29,6 +41,9 @@ ip = ""
 with (open("./config.json")) as jsonFile:
     config = json.load(jsonFile)
     # print(config)
+    
+wolfram_app_id = config["wolfram_app_id"]
+wolfram = Client(wolfram_app_id)
 openWeatherMapApiKey = config['API_KEY']
 openWeatherMapEndPoint = config['OpenWeatherMapEndpoint']
 cbsession = ""
@@ -52,7 +67,7 @@ def chat():
     return render_template('chat.html')
 
 # receive and send responses to the chat
-@app.route('/chat', methods=['GET','POST'])
+@app.route('/chat', methods=['GET','POST'])  # type: ignore
 def chat_post():
     print(request)
     print(request.form)
@@ -62,10 +77,11 @@ def chat_post():
         ip = socket.gethostbyname(socket.gethostname())
         print(ip)
         response = process_response(request)
-        print(response)
+        # print(response)
         return response
-    # else :
-    #     return render_template('chat.html')
+    
+def get_language(text):
+    return translator.detect(text).lang
 
 def process_response(text):
     print("Processing response")
@@ -80,7 +96,7 @@ def process_response(text):
     # bot = history.History().reply()
     # sbot = bot.main(text.form['message'], socket.gethostbyname(socket.gethostname()))
     # bot = bot2.main(text.form['message'])
-    result = ""
+    result = {}
     msg = text.form['message']
     current_context = get_context(msg)
     cbsession = "Sally_"+find_location_by_ip()["location"]
@@ -90,7 +106,9 @@ def process_response(text):
     contexts = get_context(text.form["message"])
     print(contexts)
     # location = findhas_country(text.form["message"])
+    current_language = get_language(msg)
     location = find_location_by_ip()
+    msg = get_translation(msg, "en", current_language)
     # print(location)
     if len(contexts) > 0:
         for context in contexts:
@@ -112,9 +130,40 @@ def process_response(text):
             elif context == "future":
                 result = history.History(text = msg, tense=getSentenceTense(msg), location=location).reply()
             else:
-                msgHistory.append(text)
-                result = cb.cleverbot(msg, session=cbsession)
-                result = {'response': result, 'context': current_context}
+                # msgHistory.append(text)
+                # result = cb.cleverbot(msg, session=cbsession)
+                # result = {'response': result, 'context': current_context}
+                msgHistory.append(msg)
+                # result = cb.cleverbot(msg, session=cbsession)
+                res = wolfram.query(msg)
+                result = ""
+                data = {}
+                try :
+                    # build data structure from a subpod
+                    # data contains the image link if available, it is called @src and the text is called @text and title is called @title
+                    # podCount = 0
+                    # for pod in res.pods:
+                    #     podCount += 1
+                    #     data[podCount] = {}
+                    #     data[podCount]["pod_name"] = "pod" + str(podCount)
+                    #     data[podCount]["items"] = pod
+                    #     for sub in pod.subpods:
+                    #         data[podCount]["sub"] = sub
+                    #         data[podCount]["plain"] = (sub.plaintext)
+                    #         if sub.title:
+                    #             data[podCount]["title"] = (sub.title)
+                    #             print(sub.title)
+                    #         if sub.image:
+                    #             data[podCount]["image"] = sub.img.getAttribute("@src")
+                    #             print(sub.image)
+                    #         print(sub.plaintext)
+                    result = next(res.results).text
+                    print(result)
+                    result = {'response': result, 'context': current_context}
+                except StopIteration:
+                    result = {'response': "I don't understand", 'context': current_context, 'data': data}
+    val = get_translation(result["response"], current_language, "en")  # type: ignore
+    result.update({"response": val})  # type: ignore
     print(result)
     return jsonify(result)
 
@@ -135,6 +184,10 @@ def has_country(text):
                     # for country in locations.country_mentions:`````````````````````````````````````````````````
                     #     locations.append(country.values())`````````````````````````````````````````````````
     return locations
+
+def get_translation(text, lang="en", src="en"):
+    translation = translator.translate(text, dest=lang, src=src)
+    return translation.text
 
 def get_context(text):
     """returns context from text"""
@@ -245,7 +298,11 @@ def get_dates(message):
 
 def getWeather():
     userIp = ip
-    myloc = new_location() if get_location() is None else get_location()
+    myloc = {}
+    if get_location() is None:
+        myloc = new_location
+    else:
+        myloc = get_location()
     openWeatherMapParams = {
         "lat": myloc["latitude"],
         "lon": myloc["longitude"],
@@ -337,5 +394,4 @@ with app.test_request_context():
     print(url_for('credits'))
 
 if __name__ == '__main__':
-    # socketio.run(app, debug=True)
     app.run(debug=True)

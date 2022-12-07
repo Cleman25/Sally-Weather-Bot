@@ -96,7 +96,7 @@
 		<script src="/static/js/stylish-portfolio.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js" integrity="sha512-aVKKRRi/Q/YV+4mjoKBsE4x3H+BkegoM/em46NNlCqNTmUYADjBbeNefNxYV7giUp0VxICtqdrbqU7iVaeZNXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 		<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.3/socket.io.min.js" integrity="sha512-GtM/5c/Ie0lStj6QwEG0HkpMQuGr9vrOAgFD4nNmImviyZvsJxN7TYU7b+R7Kthob0zFBUpuxfl3R3Mn1qekTw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
-		<script>
+		<script type="text/javascript">
 			$(document).ready(function() {
 				// var socket = io.connect('http://' + document.domain + ':' + location.port);
 				// socket.on('connect', () => {
@@ -152,6 +152,7 @@
 							var p = $('<p class="d-flex float-start msg-left" style="padding: 8px;background: #1cc4ab;display: inline-flex;box-shadow: 0px 0px 6px #169884;width: auto;"></p>')
 							// var span = $('<span class="d-flex justify-content-end" style="position: absolute;bottom: 0;right: 0;font-size: 12px;color: #ffffff;">Sally</span>')
 							var span = $('<span class="d-flex float-start justify-content-start align-items-center text-muted" style="/*padding: 8px;*//*background: #1cc4ab;*/display: inline-flex;/*box-shadow: 0px 0px 6px #169884;*/width: 100%;float: right;height: auto;padding-left: 8px; padding-bottom:8px"></span>')
+							var p_translated = $('<p class="d-flex float-start msg-left" style="padding: 8px;background: #1cc4ab;display: inline-flex;box-shadow: 0px 0px 6px #169884;width: auto;"></p>')
 							if (response.context) {
 								// Sally - '+((response.context) ? response.context : "Could not get context")+'
 								// if response.context is an array has more than 1 items, join by comma, else just use response.context
@@ -187,10 +188,28 @@
 									}
 								}
 							}
+							if (response.response_translated) {
+								p_translated.append(response.response_translated);
+								section.append(p_translated);
+							}
 							section.append(p);
 							section.append(span);
 							$("#chatbox").append(section);
 							$("#chatbox").animate({ scrollTop: $("#chatbox").prop("scrollHeight") }, 500);
+							if ('speechSynthesis' in window) {
+								// Synthesis support. Make your web apps talk!
+								// for (let i = 0; i < 10; i++) {
+								// }
+								let synth = new SpeechSynthesisUtterance();
+								let voices = window.speechSynthesis.getVoices();
+								synth.voice = voices[3];
+								synth.voiceURI = "native";
+								synth.rate = 1;
+								synth.pitch = 1;
+								synth.text = response.response;
+								synth.lang = "en-US";
+								window.speechSynthesis.speak(synth);
+							}
 						}
 					});
 				});
